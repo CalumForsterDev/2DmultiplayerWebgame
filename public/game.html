@@ -339,22 +339,17 @@ function updatePlayerAttributes(player, data) {
 	game.physics.arcade.collide(player, platforms);
 	
 	//Reset the players velocity
-	player.body.velocity.x = 0;
-	
-	
-	//Reset the players velocity
-	player.body.velocity.x = 0;
+	player.body.velocity.x = data.velx;
+	player.body.velocity.y = data.vely;
+	player.body.position.x = data.posx;
+	player.body.position.y = data.posy;
 	
 	if (data.velx < 0) {
 	
-		//Move to the left:
-		player.body.velocity.x = -150;
 		player.animations.play('left');
 	
 	} else if (data.velx > 0) {
 	
-		//move to the right
-		player.body.velocity.x = 150;
 		player.animations.play('right');
 	
 	} else {
@@ -362,7 +357,6 @@ function updatePlayerAttributes(player, data) {
 		//stand still and slide to correct location
 		player.animations.stop();
 		player.frame = 4;
-		player.body.position.x = data.posx;
 	
 	} 
 	
