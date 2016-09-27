@@ -1,0 +1,376 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+	<meta charset="UTF-8" />
+	<title>Multiplayer game</title>
+	
+		<!-- Bootstrap core CSS -->
+    <link href="./dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <script src="//cdn.jsdelivr.net/phaser/2.2.2/phaser.min.js"></script>
+    
+</head>
+<body>
+
+<div class="modal fade" tabindex="-1" id="usernameModal" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title">Multiplayer game</h4>
+      </div>
+      <div class="modal-body">
+        <p>Submit a playername before playing. Use arrow keys to control on keyboard, or touch the screen on a phone.</p>
+        <p> You will have to work together to reach higher platforms. </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<script src="./dist/jquery.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="./dist/js/bootstrap.min.js"></script>
+
+<script type="text/javascript">
+
+//Create a game
+var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+
+//Loading in the images and sprites for use in create() and update().
+function preload() {
+	game.stage.disableVisibilityChange = true;
+	game.load.image('sky', 'assets/background.png');
+	game.load.image('ground','assets/platform.png');
+	game.load.image('star','assets/star.png');
+	game.load.spritesheet('dude','assets/dude.png',32,48);
+	
+}
+
+//Variables
+var platforms; //the group for the platforms
+var background; //used to move the background as the player climbs higher
+var cursors; //takes the user keyboard inputs
+var player; //the local player
+var otherplayers = new Object(); //otherplayers[id] should point to the player sprite object
+var stars; //the stars
+var score = 0; //score for the scoreboard
+var scoreText; //used to print the score to the screen
+var playergroup; //contains all players
+
+//Websocket varaibles
+var socket = io();
+var players = new Object();
+var socketID;
+
+
+
+
+/* 
+	dealing with the websocket data from the server:
+*/
+socket.on('ID', function(id) {
+
+	socketID = id;
+	console.log('socketID: ' +socketID);
+
+});
+socket.on('players', function(data) {
+
+	//data comes in as a JSON string:
+	players = $.parseJSON(data);
+
+});
+//Listen for players jumping
+socket.on('jump', function(id) {
+
+	//player 'id' jumped
+	otherplayers[id].body.velocity.y = -250;
+
+});
+//Listen for players leveling up (changes sprite depending on lvl)
+socket.on('level up', function(id) {
+
+	//player 'id' has leveled up
+
+});
+//Send username to server:
+$('#usernameModal').modal('show');
+
+/*
+	Initially called to create game objects
+*/
+function create() {
+	
+	//Setup the game world:
+	game.world.setBounds(0,0,800,1200);
+	
+	//enable the physics system
+	game.physics.startSystem(Phaser.Physics.ARCADE);
+	
+	// A simple background
+	background = game.add.sprite(0,0, 'sky');
+	
+	
+	//The platforms group contains the groupand the 2 ledges we can jump on
+	platforms = game.add.group();
+	
+	//enable physics for any object that is created in this group
+	platforms.enableBody = true;
+	
+	//Create the ground
+	var ground = platforms.create(0, game.world.height - 64, 'ground');
+	
+	//scale it to fit the width of the game
+	ground.scale.setTo(2,2);
+
+	//ground immovable
+	ground.body.immovable = true;
+	
+	//Create two ledges
+	var ledge = platforms.create(400,1000, 'ground');
+	
+	ledge.body.immovable = true;
+	
+	ledge = platforms.create(-150, 850, 'ground');
+
+	ledge.body.immovable = true;
+	
+	//The player group 
+	playergroup = game.add.group(); 
+	playergroup.enableBody = true;
+	
+	//create the local player:
+	player = game.add.sprite(32, game.world.height - 150, 'dude');
+	
+	//Enable physics on the player
+	game.physics.arcade.enable(player);
+	
+	//player physics properties
+	player.body.bounce.y = 0.2;
+	player.body.gravity.y = 300;
+	player.body.collideWorldBounds = true;
+	
+	// our two animations, walking left and right:
+	player.animations.add('left', [0,1,2,3], 10, true);
+	player.animations.add('right', [5,6,7,8], 10, true);
+	
+	//Camera follow player
+	game.camera.follow(player, Phaser.Camera.FOLLOW_TOPDOWN);
+	
+	//add player to the playergroup
+	playergroup.add(player);
+	
+	//Add the stars:
+	stars = game.add.group();
+	stars.enableBody = true;
+	
+	//Create 12 stars evenly space apart
+	for (var i=0; i<12; i++) {
+		// Create a star inside the star group
+		var star = stars.create(i*70,0, 'star');
+		
+		//Let gravity work
+		star.body.gravity.y = 6;
+		
+		//A random amount of bounce
+		star.body.bounce.y = 0.7 + Math.random() * 0.2;
+	}
+	
+	//Add all the other players from the websocket:
+	for(var id in players) {
+		if (id == socketID) {
+			//do nothing, this is our player
+		}
+		else {
+			//Add this player, it is an online user
+			otherplayers[id] = game.add.sprite(players[id].posx, players[id].posy,'dude');
+	
+			//Enable physics on this player
+			game.physics.arcade.enable(otherplayers[id]);
+		
+			//player physics properties
+			otherplayers[id].body.bounce.y = 0.2;
+			otherplayers[id].body.gravity.y = 600;
+			otherplayers[id].body.collideWorldBounds = true;
+		
+			// our two animations, walking left and right:
+			otherplayers[id].animations.add('left', [0,1,2,3], 10, true);
+			otherplayers[id].animations.add('right', [5,6,7,8], 10, true);
+			
+			//Add to playergroup
+			playergroup.add(otherplayers[id]);
+		}
+	}
+	
+	scoreText = game.add.text(16,16, 'score: 0', {fontSize: '32px', fill: '#000' });
+	scoreText.fixedToCamera = true;
+	cursors = game.input.keyboard.createCursorKeys();
+	//pointer = game.input.
+}
+
+/*
+	This function is called to update the game automatically
+*/
+function update() {
+
+	//collide the player and the stars with the platforms
+	game.physics.arcade.collide(playergroup, platforms);
+	game.physics.arcade.collide(playergroup, playergroup);
+	game.physics.arcade.collide(stars, platforms);
+	game.physics.arcade.overlap(player, stars, collectStar, null, this);
+	
+	//Reset the players velocity
+	player.body.velocity.x = 0;
+	
+	if (cursors.left.isDown) {
+	
+		//Move to the left:
+		player.body.velocity.x = -150;
+		player.animations.play('left');
+		
+	
+	} else if (cursors.right.isDown) {
+	
+		//move to the right
+		player.body.velocity.x = 150;
+		player.animations.play('right');
+	
+	} else {
+	
+		//stand still
+		player.animations.stop();
+		player.frame = 4;
+	
+	} 
+	
+	if (cursors.up.isDown && player.body.touching.down) {
+	
+		player.body.velocity.y = -250;
+		
+		socket.emit('jump','jump');
+	
+	}
+	
+	//Loop through the other players:
+	for (var id in players) {
+		
+		//If the id matches the socketID then this is the current user's player so we remove
+		// the double sprite.
+		if(id == socketID) {
+			if( typeof otherplayers[id] === 'undefined' || otherplayers[id] === null) {
+				//Do nothing
+			}
+			else {
+				//Remove the second sprite for the player
+				console.log('killing the repeated sprite');		
+				otherplayers[id].kill();
+			}
+		}
+		else if( typeof players[id] !== 'undefined') {
+			//Check if this player has been created already
+			if (typeof otherplayers[id] !== 'undefined') {
+			
+				//Update this player on the screen
+				updatePlayerAttributes(otherplayers[id], players[id]);
+				
+			} 
+			//If this player hasn't been added, we add it now
+			else{
+				console.log('Adding new player');
+				otherplayers[id] = game.add.sprite(32, game.world.height - 150,'dude');
+	
+				//Enable physics on this player
+				game.physics.arcade.enable(otherplayers[id]);
+		
+				//player physics properties
+				otherplayers[id].body.bounce.y = 0.2;
+				otherplayers[id].body.gravity.y = 300;
+				otherplayers[id].body.collideWorldBounds = true;
+		
+				// our two animations, walking left and right:
+				otherplayers[id].animations.add('left', [0,1,2,3], 10, true);
+				otherplayers[id].animations.add('right', [5,6,7,8], 10, true);
+				
+				//Add to playergroup
+				playergroup.add(otherplayers[id]);
+				
+			}
+		}
+	}
+	//Remove all disconnected players:
+	for (var id in otherplayers) {
+	
+		if (typeof players[id] === 'undefined') {
+			playergroup.remove(otherplayers[id]);
+			otherplayers[id].kill();
+		}
+	
+	}
+	
+
+	socket.emit('player position', JSON.stringify({posx: player.body.position.x, posy: player.body.position.y, velx: player.body.velocity.x, vely: player.body.velocity.y}));
+
+}
+
+//Called when a player collects a star
+function collectStar( player, star) {
+
+	//Remove the star
+	star.kill();
+	
+	//Add and update the score
+	score += 1;
+	scoreText.text = 'score: '+score;
+	
+	socket.emit('level up', score);
+
+}
+
+/*
+	This function updates a players animation and position:
+	To reduce the jitteryness, we adjust the speed to have the player
+	catch up to where it should be.
+*/
+function updatePlayerAttributes(player, data) {
+
+	game.physics.arcade.collide(player, platforms);
+	
+	//Reset the players velocity
+	player.body.velocity.x = 0;
+	
+	
+	//Reset the players velocity
+	player.body.velocity.x = 0;
+	
+	if (data.velx < 0) {
+	
+		//Move to the left:
+		player.body.velocity.x = -150;
+		player.animations.play('left');
+	
+	} else if (data.velx > 0) {
+	
+		//move to the right
+		player.body.velocity.x = 150;
+		player.animations.play('right');
+	
+	} else {
+	
+		//stand still and slide to correct location
+		player.animations.stop();
+		player.frame = 4;
+		player.body.position.x = data.posx;
+	
+	} 
+	
+
+}
+</script>
+
+
+
+</body>
+</html>
