@@ -37,7 +37,7 @@
 <script type="text/javascript">
 
 //Create a game
-var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+var game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', { preload: preload, create: create, update: update });
 
 //Loading in the images and sprites for use in create() and update().
 function preload() {
@@ -46,6 +46,7 @@ function preload() {
 	game.load.image('ground','assets/platform.png');
 	game.load.image('star','assets/star.png');
 	game.load.spritesheet('dude','assets/dude.png',32,48);
+	game.load.image('cloud-platform', 'assets/cloud-platform.png');
 	
 }
 
@@ -56,9 +57,11 @@ var cursors; //takes the user keyboard inputs
 var player; //the local player
 var otherplayers = new Object(); //otherplayers[id] should point to the player sprite object
 var stars; //the stars
+var clouds; //the group for cloud platforms
 var score = 0; //score for the scoreboard
 var scoreText; //used to print the score to the screen
 var playergroup; //contains all players
+
 
 //Websocket varaibles
 var socket = io();
@@ -205,6 +208,19 @@ function create() {
 		}
 	}
 	
+	//Create the cloud platforms:
+	clouds = game.add.physicsGroup();
+	//Create cloud, and add it to the group of clouds
+	var cloud = game.add.sprite( 300, 700, 'cloud-platform');
+	cloudPlatform(cloud, game, clouds );
+	//Add the clouds motion:
+	cloud.addMotionPath([
+    { x: "+200", xSpeed: 2000, xEase: "Linear", y: "-200", ySpeed: 2000, yEase: "Sine.easeIn" },
+    { x: "-200", xSpeed: 2000, xEase: "Linear", y: "-200", ySpeed: 2000, yEase: "Sine.easeOut" },
+    { x: "-200", xSpeed: 2000, xEase: "Linear", y: "+200", ySpeed: 2000, yEase: "Sine.easeIn" },
+    { x: "+200", xSpeed: 2000, xEase: "Linear", y: "+200", ySpeed: 2000, yEase: "Sine.easeOut" }
+	]);
+	
 	scoreText = game.add.text(16,16, 'score: 0', {fontSize: '32px', fill: '#000' });
 	scoreText.fixedToCamera = true;
 	cursors = game.input.keyboard.createCursorKeys();
@@ -218,8 +234,10 @@ function update() {
 
 	//collide the player and the stars with the platforms
 	game.physics.arcade.collide(playergroup, platforms);
+	game.physics.arcade.collide(playergroup, clouds);
 	game.physics.arcade.collide(playergroup, playergroup);
 	game.physics.arcade.collide(stars, platforms);
+	game.physics.arcade.collide(stars, clouds);
 	game.physics.arcade.overlap(player, stars, collectStar, null, this);
 	
 	//Reset the players velocity
@@ -359,9 +377,31 @@ function updatePlayerAttributes(player, data) {
 		player.frame = 4;
 	
 	} 
+}
+	
+function cloudPlatform(name, game, group) {
+
+    if (typeof group === 'undefined') { group = game.world; }
+
+   //name = game.add.sprite( x, y, key);
+
+    game.physics.arcade.enable(name);
+
+    name.anchor.x = 0.5;
+
+    name.body.customSeparateX = true;
+    name.body.customSeparateY = true;
+    name.body.allowGravity = false;
+    name.body.immovable = true;
+
+    name.playerLocked = false;
+
+    group.add(name);
+
+};
 	
 
-}
+
 </script>
 
 
