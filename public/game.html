@@ -11,7 +11,7 @@
     
 </head>
 <body>
-
+<button type="button" class="btn btn-default" id="fullscreen">Full screen</button>
 <div class="modal fade" tabindex="-1" id="usernameModal" role="dialog">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -137,6 +137,12 @@ socket.on('time at start', function(time) {
 //Show game info to user:
 //$('#usernameModal').modal('show');
 
+//button clicked to go into full screen:
+$('#fullscreen').click(function () {
+	console.log('#cluick');
+	game.scale.startFullScreen(false);
+
+});
 
 /*
 	Initially called to create game objects
@@ -258,6 +264,10 @@ function create() {
 	
 	//mouse or touch input:
 	pointer = game.input.addPointer();
+	
+	//Allow full screen
+	game.scale.fullScreenScaleMode = Phaser.ScaleManager.SHOW_ALL;
+	
 }
 
 
@@ -282,12 +292,12 @@ function preRender() {
 		
 		if (lockedTo && lockedTo.deltaY < 0 && wasLocked) {
 			//if the platform is moving up we add its velocity to the player's jump
-			player.body.velocity.y = -500 + (lockedTo.deltaY * 10);
+			player.body.velocity.y = -200 + (lockedTo.deltaY * 10);
 		
 		}
 		else {
 		
-			player.body.velocity.y = -500;
+			player.body.velocity.y = -200;
 		
 		}
 		
@@ -349,7 +359,7 @@ function update() {
 	
 	} 
 	
-	if ((cursors.up.isDown || (pointer.active && pointer.screenY < 400) ) && standing && game.time.time > jumpTimer ) {
+	if ((cursors.up.isDown || (pointer.active && (pointer.worldY < (player.body.position.y-200))) ) && standing && game.time.time > jumpTimer ) {
 		if (locked) {
 			
 			cancelLock();
