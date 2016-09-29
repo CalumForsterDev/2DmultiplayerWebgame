@@ -37,7 +37,7 @@
 <script type="text/javascript">
 
 //Create a game
-var game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', { preload: preload, create: create, update: update });
+var game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', { preload: preload, create: create, update: update, preRender: preRender });
 
 //Loading in the images and sprites for use in create() and update().
 function preload() {
@@ -58,10 +58,29 @@ var player; //the local player
 var otherplayers = new Object(); //otherplayers[id] should point to the player sprite object
 var stars; //the stars
 var clouds; //the group for cloud platforms
+var cloud1;
 var score = 0; //score for the scoreboard
 var scoreText; //used to print the score to the screen
 var playergroup; //contains all players
-
+var wasLocked = false;
+var lockedTo = null;
+var locked = false; //Used to check if the local player is on a cloud
+var willJump = false;
+var jumpTimer = 0;
+/*
+	the objectPositions array will store all the initial positions
+	of objects from the server.
+	this is used to place the cloud platforms and other moving objects into their
+	current position.
+	
+	objectPositions = 
+		{
+			(cloud1) 1: {posx, posy}	
+		}
+*/
+var objectPositions = new Object();
+var timeServerStarted;
+objectPositions[1] = {posx: 450, posy: 800};
 
 //Websocket varaibles
 var socket = io();
@@ -69,7 +88,10 @@ var players = new Object();
 var socketID;
 
 
-
+/*
+	Sending initial data to server
+*/
+socket.emit('objects position', JSON.stringify(objectPositions) );
 
 /* 
 	dealing with the websocket data from the server:
@@ -99,8 +121,22 @@ socket.on('level up', function(id) {
 	//player 'id' has leveled up
 
 });
-//Send username to server:
-$('#usernameModal').modal('show');
+//Listen for the time at which the server started
+//this allows us to move objects to where they should
+//be
+socket.on('time at start', function(time) {
+
+	timeServerStarted = Math.round(time); //Math.round does the string to int conversion
+	console.log(timeServerStarted);
+	
+
+
+	
+
+});
+//Show game info to user:
+//$('#usernameModal').modal('show');
+
 
 /*
 	Initially called to create game objects
@@ -114,7 +150,7 @@ function create() {
 	game.physics.startSystem(Phaser.Physics.ARCADE);
 	
 	// A simple background
-	background = game.add.sprite(0,0, 'sky');
+	background = game.add.sprite(0,  0, 'sky');
 	
 	
 	//The platforms group contains the groupand the 2 ledges we can jump on
@@ -133,11 +169,11 @@ function create() {
 	ground.body.immovable = true;
 	
 	//Create two ledges
-	var ledge = platforms.create(400,1000, 'ground');
+	var ledge = platforms.create(400,game.world.height-200, 'ground');
 	
 	ledge.body.immovable = true;
 	
-	ledge = platforms.create(-150, 850, 'ground');
+	ledge = platforms.create(-150, game.world.height - 350, 'ground');
 
 	ledge.body.immovable = true;
 	
@@ -208,23 +244,65 @@ function create() {
 		}
 	}
 	
+	
 	//Create the cloud platforms:
 	clouds = game.add.physicsGroup();
-	//Create cloud, and add it to the group of clouds
-	var cloud = game.add.sprite( 300, 700, 'cloud-platform');
-	cloudPlatform(cloud, game, clouds );
-	//Add the clouds motion:
-	cloud.addMotionPath([
-    { x: "+200", xSpeed: 2000, xEase: "Linear", y: "-200", ySpeed: 2000, yEase: "Sine.easeIn" },
-    { x: "-200", xSpeed: 2000, xEase: "Linear", y: "-200", ySpeed: 2000, yEase: "Sine.easeOut" },
-    { x: "-200", xSpeed: 2000, xEase: "Linear", y: "+200", ySpeed: 2000, yEase: "Sine.easeIn" },
-    { x: "+200", xSpeed: 2000, xEase: "Linear", y: "+200", ySpeed: 2000, yEase: "Sine.easeOut" }
-	]);
+	
+	createObjects(); //creates all the objects e.g. cloud platforms
 	
 	scoreText = game.add.text(16,16, 'score: 0', {fontSize: '32px', fill: '#000' });
 	scoreText.fixedToCamera = true;
+	
+	//Keyboard input
 	cursors = game.input.keyboard.createCursorKeys();
-	//pointer = game.input.
+	
+	//mouse or touch input:
+	pointer = game.input.addPointer();
+}
+
+
+/*
+	The preRender method is called after all Game Objects have been updated, 
+	but before any rendering takes place.
+*/
+function preRender() {
+
+	if (locked || wasLocked) {
+		player.position.x += lockedTo.deltaX;
+		player.position.y = lockedTo.y - 48;
+		
+		if (player.body.velocity.x !== 0) {
+			player.body.velocity.y = 0;
+		}
+	}
+	
+	if (willJump) {
+	
+		willJump = false;
+		
+		if (lockedTo && lockedTo.deltaY < 0 && wasLocked) {
+			//if the platform is moving up we add its velocity to the player's jump
+			player.body.velocity.y = -500 + (lockedTo.deltaY * 10);
+		
+		}
+		else {
+		
+			player.body.velocity.y = -500;
+		
+		}
+		
+		jumpTimer = game.time.time + 750;
+	
+	}
+	
+	if (wasLocked) {
+	
+		wasLocked = false;
+		lockedTo.playerLocked = false;
+		lockedTo = null;
+	
+	}
+
 }
 
 /*
@@ -232,25 +310,32 @@ function create() {
 */
 function update() {
 
+
 	//collide the player and the stars with the platforms
 	game.physics.arcade.collide(playergroup, platforms);
-	game.physics.arcade.collide(playergroup, clouds);
+	game.physics.arcade.collide(player, clouds, customSep, null, this);
 	game.physics.arcade.collide(playergroup, playergroup);
 	game.physics.arcade.collide(stars, platforms);
-	game.physics.arcade.collide(stars, clouds);
 	game.physics.arcade.overlap(player, stars, collectStar, null, this);
+	
+	//Check if the player is standing. This is used when testing
+	//if the player can jump later.
+	var standing = player.body.blocked.down || player.body.touching.down || locked;
 	
 	//Reset the players velocity
 	player.body.velocity.x = 0;
 	
-	if (cursors.left.isDown) {
+	//Makes it easier to refer to the players touch pointer
+	var pointer = game.input.pointer1;
+	
+	if (cursors.left.isDown || (pointer.active && pointer.worldX < 400)) {
 	
 		//Move to the left:
 		player.body.velocity.x = -150;
 		player.animations.play('left');
 		
 	
-	} else if (cursors.right.isDown) {
+	} else if (cursors.right.isDown || (pointer.active && pointer.worldX > 400)) {
 	
 		//move to the right
 		player.body.velocity.x = 150;
@@ -264,11 +349,24 @@ function update() {
 	
 	} 
 	
-	if (cursors.up.isDown && player.body.touching.down) {
-	
-		player.body.velocity.y = -250;
+	if ((cursors.up.isDown || (pointer.active && pointer.screenY < 400) ) && standing && game.time.time > jumpTimer ) {
+		if (locked) {
+			
+			cancelLock();
 		
-		socket.emit('jump','jump');
+		}
+
+		willJump = true;
+		
+		//player.body.velocity.y = -550;
+		
+		//socket.emit('jump','jump');
+	
+	}
+	
+	if (locked) {
+	
+		checkLock();
 	
 	}
 	
@@ -297,7 +395,7 @@ function update() {
 			} 
 			//If this player hasn't been added, we add it now
 			else{
-				console.log('Adding new player');
+
 				otherplayers[id] = game.add.sprite(32, game.world.height - 150,'dude');
 	
 				//Enable physics on this player
@@ -328,6 +426,8 @@ function update() {
 	
 	}
 	
+	//Update the position of cloud1
+	updateCloud1(Date.now());
 
 	socket.emit('player position', JSON.stringify({posx: player.body.position.x, posy: player.body.position.y, velx: player.body.velocity.x, vely: player.body.velocity.y}));
 
@@ -344,6 +444,33 @@ function collectStar( player, star) {
 	scoreText.text = 'score: '+score;
 	
 	socket.emit('level up', score);
+
+}
+
+/*
+	Checks if the player should be unlocked
+	from the cloud platform
+*/
+function checkLock() {
+	player.body.velocity.y = 0;
+	
+	//If the player has walked off either side then they 
+	//are no longer locked to it
+	if (player.body.right < lockedTo.body.x || player.body.x > lockedTo.body.right) {
+	
+		cancelLock();
+	
+	}
+}
+
+/*
+	Cancels the lock which the player has
+	with the cloud platform
+*/
+function cancelLock() {
+
+	wasLocked = true;
+	locked = false;
 
 }
 
@@ -378,28 +505,107 @@ function updatePlayerAttributes(player, data) {
 	
 	} 
 }
+
+/*
+	The collision callback handler for the clouds:
+
+*/
+function customSep(player, platform) {
 	
-function cloudPlatform(name, game, group) {
+	//If the player is in a jump and falling down and not
+	//already locked to the platform then we tell
+	//the game the player is now locked.
+	if (!locked && player.body.velocity.y > 0) {
+	
+		//the platform landed on is stored in lockedTo
+		locked = true;
+		lockedTo = platform;
+		platform.playerLocked = true;
+		
+		//Velocity reset
+		player.body.velocity.y = 0;
+	
+	}
 
-    if (typeof group === 'undefined') { group = game.world; }
+}
 
-   //name = game.add.sprite( x, y, key);
+/*
+	This function updates the positioin of cloud1
+	the cloud moves in 4 stages: 
+		0: 	right-up
+		1:	left-up
+		2:	left-down
+		3:	right-down
+*/
+function updateCloud1(time) {
+	stage = Math.floor(((time - timeServerStarted) % 8000) / 2000);
 
-    game.physics.arcade.enable(name);
+game.world.height - 500
+	switch (stage) {
+		
+		case 0:
+			//Right and up
+			cloud1.body.position.x = 450 + (( (time - timeServerStarted) % 2000 ) * 0.1);
+			cloud1.body.position.y = game.world.height - 400 - (( (time - timeServerStarted) % 2000 ) * 0.05);
+			break;
+		case 1:
+			//left and up
+			cloud1.body.position.x = 650 + (( (time - timeServerStarted) % 2000 ) * (-0.1));
+			cloud1.body.position.y = game.world.height - 500 - (( (time - timeServerStarted) % 2000 ) * 0.05);
+			break;
+		case 2:
+			//left and down
+			cloud1.body.position.x = 450 + (( (time - timeServerStarted) % 2000 ) * (-0.1));
+			cloud1.body.position.y = game.world.height - 600 - (( (time - timeServerStarted) % 2000 ) * (-0.05));
+			break;
+		case 3:
+			//right and down
+			cloud1.body.position.x = 250 + (( (time - timeServerStarted) % 2000 ) * 0.1);
+			cloud1.body.position.y = game.world.height - 500 - (( (time - timeServerStarted) % 2000 ) * (-0.05));
+			break;
+	}
+}
 
-    name.anchor.x = 0.5;
+/*
+	Creates all the objects useing the timeFromServer
+	to compute where each object should be.
+*/
+function createObjects() {
 
-    name.body.customSeparateX = true;
-    name.body.customSeparateY = true;
-    name.body.allowGravity = false;
-    name.body.immovable = true;
+	//Create a cloud, and add it to the group of clouds
+	console.log(objectPositions[1].posx);
+	cloud1 = new CloudPlatform(game, objectPositions[1].posx, objectPositions[1].posy, 'cloud-platform', clouds); //450, 800
+	
 
-    name.playerLocked = false;
+}
+	
+/*
+	The constructor for the cloud platforms.
+Followed by the functions to control motion.
+*/
+CloudPlatform = function (game, x, y, key, group) {
 
-    group.add(name);
+	if (typeof group === 'undefined') { group = game.world; }
+
+    Phaser.Sprite.call(this, game, x, y, key);
+
+    game.physics.arcade.enable(this);
+
+    this.anchor.x = 0.5;
+
+    this.body.customSeparateX = true;
+    this.body.customSeparateY = true;
+    this.body.allowGravity = false;
+    this.body.immovable = true;
+
+    this.playerLocked = false;
+
+    group.add(this);
 
 };
-	
+
+CloudPlatform.prototype = Object.create(Phaser.Sprite.prototype);
+CloudPlatform.prototype.constructor = CloudPlatform;
 
 
 </script>

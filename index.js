@@ -9,6 +9,9 @@ var path = require("path");
 // {player: {posx, posy, velx, vely}}
 var players = new Object();
 
+//This will hold all the positions of moving objects
+var timeAtStart = Date.now();
+
 
 app.get('/', function(req,res) {
 
@@ -31,6 +34,11 @@ io.on('connection', function(socket) {
 	
 	//Send the socketID back to client
 	socket.emit('ID', id);
+	
+	//Send the time at start to client
+	//this is so that the client can update
+	//the location of moving objects
+	socket.emit('time at start', timeAtStart);
 
 	console.log('a user connected: ' + id);
 	
@@ -38,7 +46,7 @@ io.on('connection', function(socket) {
 	
 	//Listen for positions:
 	socket.on('player position', function(positiondata) {
-	
+		
 		players[id] = JSON.parse(positiondata);
 	
 	});
@@ -59,6 +67,10 @@ io.on('connection', function(socket) {
 	
 	});
 	
+	
+	
+	
+	
 	socket.on('disconnect', function() {
 		
 		delete players[id];
@@ -73,14 +85,10 @@ setInterval(function() {
 	
 }, 10);
 
-app.use(express.static('public'));
+
 
 http.listen(3000, function() {
 	
 	console.log('listening');
 
 });
-
-
-
-
