@@ -6,8 +6,12 @@ var path = require("path");
 
 
 //This object stores all the params for each player:
-// {player: {posx, posy, velx, vely}}
+// {player: {name: , position: {posx: , posy: , velx: , vely: }}
 var players = new Object();
+players['baddie1'] = {id: 'baddie1',username: '/noname', position: {posx: 0, posy: 0, velx: 0, vely: 0}};
+players['water'] = {height: 1200,username: '/noname'};
+players['boat'] = {relesed: false, username: '/noname', height: 820};
+
 
 //This will hold all the positions of moving objects
 var timeAtStart = Date.now();
@@ -19,9 +23,9 @@ app.get('/', function(req,res) {
 
 });
 
-app.get('/play', function(req, res) {
+app.get('/host', function(req, res) {
 
-	res.sendFile(path.join(__dirname+'/public/game.html'));
+	res.sendFile(path.join(__dirname+'/public/gamehost.html'));
 
 });
 
@@ -42,12 +46,18 @@ io.on('connection', function(socket) {
 
 	console.log('a user connected: ' + id);
 	
-	players[id] = {posx: 0, posy: 0, velx: 0, vely: 0};
+	players[id] = {username: '/noname', position: {posx: 0, posy: 0, velx: 0, vely: 0}};
 	
 	//Listen for positions:
-	socket.on('player position', function(positiondata) {
+	socket.on('player data', function(positiondata) {
 		
 		players[id] = JSON.parse(positiondata);
+		
+		if (players[id].username.length > 8) {
+		
+			players[id].username = 'too long';
+		
+		}
 	
 	});
 	
@@ -67,6 +77,39 @@ io.on('connection', function(socket) {
 	
 	});
 	
+	//listen for the boat to be released
+	socket.on('release', function() {
+		console.log('boat relesed');
+		players['boat'].released = true;
+		
+		io.emit('released');
+	
+	});
+	
+	//listen for updates on the enemy
+	socket.on('enemy', function(enemy) {
+	
+		players['baddie1'] = JSON.parse(enemy);
+	
+	
+	});
+	
+
+	
+	//Listen for usernames
+	socket.on('username', function(name) {
+	
+		if( name.length > 10) {
+		
+			name = 'too long';
+		
+		}
+		players[id].username = name;
+		console.log('set new username');
+	
+	
+	});
+	
 	
 	
 	
@@ -81,9 +124,46 @@ io.on('connection', function(socket) {
 
 setInterval(function() {
 	
+	var time = Date.now();
+	if( time - timeAtStart > 12000) {
+	
+		players['water'].height -= 0.2;
+		
+		if (players['water'].height <= 0) {
+		
+			//start again
+			players['water'].height = 1200;
+			players['boat'].height = 820;
+			players['boat'].released = false;
+		
+		}
+
+	}
+	
+	if( players['boat'].released ){
+	
+		var distance = players['water'].height - players['boat'].height - 25;
+		
+		if (distance > 400) {
+		
+		}
+		else {
+		
+			players['boat'].height += distance*0.05;
+		}
+		
+	
+
+	
+	}
+	
+	
+	
+
+	
 	io.emit('players', JSON.stringify(players));	
 	
-}, 10);
+}, 20);
 
 
 

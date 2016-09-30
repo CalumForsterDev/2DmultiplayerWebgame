@@ -86,6 +86,7 @@ var jumpTimer = 0;
 var usernames = new Object();
 var water;
 var boat;
+var directionChange = false;
 
 /*
 	the objectPositions array will store all the initial positions
@@ -108,6 +109,7 @@ var socket = io();
 var players = new Object(); //players = {name: username, positions: {posx: , posy: , velx:, vely:}}
 var socketID;
 var username = '/noname';
+var released = false;
 
 
 
@@ -143,6 +145,14 @@ socket.on('jump', function(id) {
 socket.on('level up', function(id) {
 
 	//player 'id' has leveled up
+
+});
+
+//listen for the release of the enemy:
+socket.on('released', function() {
+	console.log('released');
+	released = true;
+	baddie.body.velocity.x = 150;
 
 });
 
@@ -455,6 +465,7 @@ function update() {
 	game.physics.arcade.overlap(player, stars, collectStar, null, this);
 	game.physics.arcade.overlap(player, water, sink, null, this);
 	game.physics.arcade.collide(player,boat);
+	game.physics.arcade.overlap(water, baddie, baddiesUnderWater, null, this);
 
 	
 	//Check if the player is standing. This is used when testing
@@ -647,30 +658,56 @@ function sink(player, water) {
 
 }
 
+//Called when the baddie overlap with the water
+function baddiesUnderWater() {
+
+	if (baddie.body.position.y - 32 > water.body.position.y) {
+
+		//reset baddie
+		released = false;
+		baddie.body.position.x = 32;
+		baddie.body.position.y = game.world.height - 400;
+		baddie.body.velocity.x = 0;
+
+		
+
+	
+	}
+
+}
+
 //updates the baddie 
 function updateBaddies() {
 
-	//Reset the players velocity
-	baddie.body.velocity.x = players['baddie1'].position.velx;
-	baddie.body.velocity.y = players['baddie1'].position.vely;
-	baddie.body.position.x = players['baddie1'].position.posx;
-	baddie.body.position.y = players['baddie1'].position.posy;
+
+	if (released) {
 	
-	if (players['baddie1'].position.velx < 0) {
+		//change the direction it moves when it
+		//reaches the ends
+		if (baddie.body.position.x >= 400 && !directionChange) {
+			directionChange = true;
+			baddie.animations.play('left');
+		}
+		else if (baddie.body.position.x <= 32 && !directionChange) {
+			directionChange = true;
+			baddie.animations.play('right');
+		}
 	
-		baddie.animations.play('left');
+		if(directionChange) {
+		
+			baddie.body.velocity.x = (-1) * baddie.body.velocity.x;
+			directionChange = false;
+		
+		}
+	}
+	else {
 	
-	} else if (players['baddie1'].position.velx > 0) {
+		baddie.frame = 1;
+	}
 	
-		baddie.animations.play('right');
+	socket.emit('enemy', JSON.stringify({id: 'baddie1', position: {posx: baddie.body.position.x, posy: baddie.body.position.y, velx: baddie.body.velocity.x, vely: baddie.body.velocity.y}}));
 	
-	} else {
 	
-		//stand still and slide to correct location
-		baddie.animations.stop();
-		baddie.frame = 4;
-	
-	} 
 
 
 }
@@ -687,7 +724,7 @@ function collectStar( player, star) {
 	
 	socket.emit('level up', score);
 	
-	if(score = 12) {
+	if(score == 12) {
 	
 		alert('Well done, you made it!');
 	
