@@ -15,6 +15,7 @@ players['boat'] = {relesed: false, username: '/noname', height: 820};
 
 //This will hold all the positions of moving objects
 var timeAtStart = Date.now();
+var iteration = 0;
 
 
 app.get('/', function(req,res) {
@@ -126,6 +127,13 @@ setInterval(function() {
 	
 	var time = Date.now();
 	if( time - timeAtStart > 12000) {
+		
+		if (iteration++ >=5 ){
+		
+			var timeToGo = (players['water'].height/0.2)/200;
+			io.emit('starting in', 'Next wave in ' + timeToGo);
+			iteration = 0;
+		}
 	
 		players['water'].height -= 0.2;
 		
@@ -135,9 +143,22 @@ setInterval(function() {
 			players['water'].height = 1200;
 			players['boat'].height = 820;
 			players['boat'].released = false;
+			
+			timeAtStart = Date.now();
 		
 		}
 
+	}
+	else {
+		if(iteration++ >= 5) {
+		
+			var timeToGo = (12000-(time-timeAtStart))/1000;
+			io.emit('starting in', 'starting in ' + timeToGo);
+			iteration = 0;
+		
+		}
+		
+	
 	}
 	
 	if( players['boat'].released ){

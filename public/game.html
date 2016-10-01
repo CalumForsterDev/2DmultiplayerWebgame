@@ -108,6 +108,7 @@ var socket = io();
 var players = new Object(); //players = {name: username, positions: {posx: , posy: , velx:, vely:}}
 var socketID;
 var username = '/noname';
+var countdown = '';
 
 
 
@@ -167,6 +168,14 @@ $('#fullscreen').click(function () {
 	game.scale.startFullScreen(false);
 
 });
+
+//listen for countdown
+socket.on('starting in', function(string) {
+
+	countdown.text = string;
+
+});
+
 
 //When clicked, send username to server
 $('#usernameSubmit').click(function () {
@@ -343,6 +352,9 @@ function create() {
 	
 	scoreText = game.add.text(16,16, 'score: 0', {fontSize: '32px', fill: '#000' });
 	scoreText.fixedToCamera = true;
+	
+	countdown = game.add.text(16, 550, 'Starts in: 0', {fontSize: '32px', fill: '#000' });
+	countdown.fixedToCamera = true;
 	
 	//Keyboard input
 	cursors = game.input.keyboard.createCursorKeys();
@@ -641,7 +653,7 @@ function sink(player, water) {
 	if (player.body.position.y < water.body.position.y) {
 		game.camera.follow(0);
 		player.kill();
-		alert('Game Over!');
+		alert('Game Over! Refresh to start again');
 		gameover = true;
 	}
 
@@ -687,7 +699,7 @@ function collectStar( player, star) {
 	
 	socket.emit('level up', score);
 	
-	if(score = 12) {
+	if(score == 12) {
 	
 		alert('Well done, you made it!');
 	

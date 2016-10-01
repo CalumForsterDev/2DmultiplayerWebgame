@@ -110,6 +110,7 @@ var players = new Object(); //players = {name: username, positions: {posx: , pos
 var socketID;
 var username = '/noname';
 var released = false;
+var countdown = '';
 
 
 
@@ -153,6 +154,13 @@ socket.on('released', function() {
 	console.log('released');
 	released = true;
 	baddie.body.velocity.x = 150;
+
+});
+
+//listen for countdown
+socket.on('starting in', function(string) {
+
+	countdown.text = string;
 
 });
 
@@ -353,6 +361,9 @@ function create() {
 	
 	scoreText = game.add.text(16,16, 'score: 0', {fontSize: '32px', fill: '#000' });
 	scoreText.fixedToCamera = true;
+	
+	countdown = game.add.text(16, 550, 'Starts in: 0', {fontSize: '32px', fill: '#000' });
+	countdown.fixedToCamera = true;
 	
 	//Keyboard input
 	cursors = game.input.keyboard.createCursorKeys();
