@@ -2,80 +2,26 @@
 <html lang="en"> 
 <head> 
 	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-	<title>Multiplayer Game</title>
+	<title>Multiplayer game</title>
 	
 		<!-- Bootstrap core CSS -->
     <link href="./dist/css/bootstrap.min.css" rel="stylesheet">
-   
-  
-  
     
     <script src="//cdn.jsdelivr.net/phaser/2.2.2/phaser.min.js"></script>
     
-    
-
-    
 </head>
+<body>
+<button type="button" class="btn btn-default" id="fullscreen">Full screen</button>
 
-<body id="body">
-
-		                
-
-          
-          
-          		
-    <div   id="game-area">
-    </div>
-           
-           
-           
-
-   	<!-- Static masthead -->
-    <nav class="navbar navbar-default navbar-fixed-bottom">
-    	<div class="container">
-          <!-- Brand and toggle get grouped for better mobile display -->
-    			<div class="navbar-header">
-      			<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
-        			<span class="sr-only">Toggle navigation</span>
-        			<span class="icon-bar"></span>
-        			<span class="icon-bar"></span>
-        			<span class="icon-bar"></span>
-      			</button>
-      			<a class="navbar-brand" id="score">Score</a>
-            <a class="navbar-brand" id="countdown">counrtdown</a>
-    			</div>
-
-       		<!-- Collect the nav links, forms, and other content for toggling -->
-     			<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
-     			
-          	<ul class="nav navbar-nav">
-							<li> 
-								<form class="navbar-form">
-        					<div class="input-group">
-         						<input type="text" id="chosenName" class="form-control" placeholder="Username">
-         						<span class="input-group-btn">
-         							<button  type="button" id="usernameSubmit" class="btn btn-default">Submit</button>
-         						</span>
-        					</div>
-     						</form>
-     					</li>
-     					
-     					<li>  								 
-     						<button type="button" class="btn btn-default navbar-btn" id="fullscreen"> Full screen </button>
-     					</li> 
-            		
-            	<li>
-             		<button type="button" class="btn btn-default navbar-btn" id="restart">Restart</button>
-              </li> 
-                  
-          </ul>
-        </div><!--/.nav-collapse -->
-      </div>
-    </nav>  
+<div class="input-group">
+  <span class="input-group-addon" id="username">Name</span>
+  <input type="text" id="chosenName" class="form-control" placeholder="Username" aria-describedby="basic-addon1">
+  <button type="button" class="btn btn-default" id="usernameSubmit"> Submit </button>
+</div>
 
 
-
+<p id="countdown"> </p>
+<p id="score"> </p>
 
 <script src="./dist/jquery.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
@@ -84,7 +30,7 @@
 <script type="text/javascript">
 
 //Create a game
-var game = new Phaser.Game(800, 600, Phaser.AUTO, 'game-area', { preload: preload, create: create, update: update, preRender: preRender });
+var game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', { preload: preload, create: create, update: update, preRender: preRender });
 
 //Loading in the images and sprites for use in create() and update().
 function preload() {
@@ -100,11 +46,7 @@ function preload() {
 	game.load.image('water', 'assets/waterSmall.png');
 	game.load.image('boat', 'assets/boat.png');
 	
-	this.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
-	this.scale.pageAlignHorizontally = true;
-  this.scale.pageAlignVertically = false;
-  this.scale.setScreenSize(true);
-  game.scale.windowConstraints.bottom = "visual";
+	game.forceSingleUpdate = true;
 	
 }
 
@@ -121,7 +63,7 @@ var stars; //the stars
 var clouds; //the group for cloud platforms
 var cloud1;
 var score = 0; //score for the scoreboard
-var scoreText; //used to print the score to the screen
+
 var playergroup; //contains all players
 var wasLocked = false;
 var lockedTo = null;
@@ -131,7 +73,6 @@ var jumpTimer = 0;
 var usernames = new Object();
 var water;
 var boat;
-var directionChange = false;
 
 /*
 	the objectPositions array will store all the initial positions
@@ -154,8 +95,7 @@ var socket = io();
 var players = new Object(); //players = {name: username, positions: {posx: , posy: , velx:, vely:}}
 var socketID;
 var username = '/noname';
-var released = false;
-var countdown = '';
+
 
 
 
@@ -194,21 +134,6 @@ socket.on('level up', function(id) {
 
 });
 
-//listen for the release of the enemy:
-socket.on('released', function() {
-	console.log('released');
-	released = true;
-	baddie.body.velocity.x = 150;
-
-});
-
-//listen for countdown
-socket.on('starting in', function(string) {
-
-	$('#countdown').html(string);
-
-});
-
 
 
 //Listen for the time at which the server started
@@ -231,13 +156,14 @@ $('#fullscreen').click(function () {
 
 });
 
-//Button to restart game
-$('#restart').click(function () {
-
-	location.reload();
+//listen for countdown
+socket.on('starting in', function(string) {
 	
+	$('#countdown').html(string);
+
 
 });
+
 
 //When clicked, send username to server
 $('#usernameSubmit').click(function () {
@@ -255,8 +181,6 @@ $('#usernameSubmit').click(function () {
 	
 	
 	addUserName(socketID, username, player.body.position.x, player.body.position.y);
-	
-	$('#body').focus();
 
 });
 
@@ -320,6 +244,7 @@ function create() {
 	game.physics.arcade.enable(boat);
 	boat.enableBody = true;
 	boat.body.immovable = true;
+
 	
 	//the bad guy group
 	baddies = game.add.group();
@@ -411,11 +336,11 @@ function create() {
 	
 	//Create the cloud platforms:
 	clouds = game.add.physicsGroup();
+
 	
 	createObjects(); //creates all the objects e.g. cloud platforms
 	
-	scoreText = 'score: 0';
-	$('#score').html(scoreText);
+	
 
 	
 	//Keyboard input
@@ -424,6 +349,9 @@ function create() {
 	//mouse or touch input:
 	game.input.addPointer();
 	game.input.addPointer();
+	
+	scoreText = 'score: 0';
+	$('#score').html(scoreText);
 	
 	//Allow full screen
 	game.scale.fullScreenScaleMode = Phaser.ScaleManager.SHOW_ALL;
@@ -452,12 +380,12 @@ function preRender() {
 		
 		if (lockedTo && lockedTo.deltaY < 0 && wasLocked) {
 			//if the platform is moving up we add its velocity to the player's jump
-			player.body.velocity.y = -170 + (lockedTo.deltaY * 10);
+			player.body.velocity.y = -200 + (lockedTo.deltaY * 10);
 		
 		}
 		else {
 		
-			player.body.velocity.y = -170;
+			player.body.velocity.y = -200;
 		
 		}
 		
@@ -529,7 +457,7 @@ function update() {
 	game.physics.arcade.overlap(player, stars, collectStar, null, this);
 	game.physics.arcade.overlap(player, water, sink, null, this);
 	game.physics.arcade.collide(player,boat, customSep, null, this);
-	game.physics.arcade.overlap(water, baddie, baddiesUnderWater, null, this);
+
 
 	
 	//Check if the player is standing. This is used when testing
@@ -543,14 +471,14 @@ function update() {
 	var pointer1 = game.input.pointer1;
 	var pointer2 = game.input.pointer2;
 	
-	if (cursors.left.isDown || (pointer1.active && pointer1.worldX < 400 && (pointer1.worldY > (player.body.position.y-200)))) {
+	if (cursors.left.isDown || (pointer1.active && pointer1.worldX < 400 && (pointer1.worldY > (game.camera.y+400)))) {
 	
 		//Move to the left:
 		player.body.velocity.x = -150;
 		player.animations.play('left');
 		
 	
-	} else if (cursors.right.isDown || (pointer1.active && pointer1.worldX > 400 && (pointer1.worldY > (player.body.position.y-200)))) {
+	} else if (cursors.right.isDown || (pointer1.active && pointer1.worldX > 400 && (pointer1.worldY > (game.camera.y+400)))) {
 	
 		//move to the right
 		player.body.velocity.x = 150;
@@ -564,7 +492,7 @@ function update() {
 	
 	} 
 	
-	if ((cursors.up.isDown || (pointer1.active && (pointer1.worldY < (player.body.position.y-200))) || pointer2.active ) && standing && game.time.time > jumpTimer ) {
+	if ((cursors.up.isDown || (pointer1.active && (pointer1.worldY < (game.camera.y+400))) || pointer2.active ) && standing && game.time.time > jumpTimer ) {
 		if (locked) {
 			
 			cancelLock();
@@ -716,26 +644,8 @@ function sink(player, water) {
 	if (player.body.position.y < water.body.position.y) {
 		game.camera.follow(0);
 		player.kill();
-		alert('Game Over!');
+		alert('Game Over! Refresh to start again');
 		gameover = true;
-	}
-
-}
-
-//Called when the baddie overlap with the water
-function baddiesUnderWater() {
-
-	if (baddie.body.position.y - 32 > water.body.position.y) {
-
-		//reset baddie
-		released = false;
-		baddie.body.position.x = 32;
-		baddie.body.position.y = game.world.height - 400;
-		baddie.body.velocity.x = 0;
-
-		
-
-	
 	}
 
 }
@@ -743,35 +653,27 @@ function baddiesUnderWater() {
 //updates the baddie 
 function updateBaddies() {
 
-
-	if (released) {
+	//Reset the players velocity
+	baddie.body.velocity.x = players['baddie1'].position.velx;
+	baddie.body.velocity.y = players['baddie1'].position.vely;
+	baddie.body.position.x = players['baddie1'].position.posx;
+	baddie.body.position.y = players['baddie1'].position.posy;
 	
-		//change the direction it moves when it
-		//reaches the ends
-		if (baddie.body.position.x >= 400 && !directionChange) {
-			directionChange = true;
-			baddie.animations.play('left');
-		}
-		else if (baddie.body.position.x <= 32 && !directionChange) {
-			directionChange = true;
-			baddie.animations.play('right');
-		}
+	if (players['baddie1'].position.velx < 0) {
 	
-		if(directionChange) {
-		
-			baddie.body.velocity.x = (-1) * baddie.body.velocity.x;
-			directionChange = false;
-		
-		}
-	}
-	else {
+		baddie.animations.play('left');
 	
-		baddie.frame = 1;
-	}
+	} else if (players['baddie1'].position.velx > 0) {
 	
-	//socket.emit('enemy', JSON.stringify({id: 'baddie1', position: {posx: baddie.body.position.x, posy: baddie.body.position.y, velx: baddie.body.velocity.x, vely: baddie.body.velocity.y}}));
+		baddie.animations.play('right');
 	
+	} else {
 	
+		//stand still and slide to correct location
+		baddie.animations.stop();
+		baddie.frame = 4;
+	
+	} 
 
 
 }
@@ -911,12 +813,12 @@ game.world.height - 500
 			break;
 		case 2:
 			//left and down
-			cloud1.body.position.x = 450 + (( (time - timeServerStarted) % 2000 ) * (-0.05));
+			cloud1.body.position.x = 450 + (( (time - timeServerStarted) % 2000 ) * (-0.1));
 			cloud1.body.position.y = game.world.height - 600 - (( (time - timeServerStarted) % 2000 ) * (-0.05));
 			break;
 		case 3:
 			//right and down
-			cloud1.body.position.x = 350 + (( (time - timeServerStarted) % 2000 ) * 0.05);
+			cloud1.body.position.x = 250 + (( (time - timeServerStarted) % 2000 ) * 0.1);
 			cloud1.body.position.y = game.world.height - 500 - (( (time - timeServerStarted) % 2000 ) * (-0.05));
 			break;
 	}

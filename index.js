@@ -30,6 +30,12 @@ app.get('/host', function(req, res) {
 
 });
 
+app.get('/backup', function(req, res) {
+
+	res.sendFile(path.join(__dirname+'/public/backup.html'));
+
+});
+
 app.use(express.static('public'));
 
 io.on('connection', function(socket) {
@@ -129,8 +135,9 @@ setInterval(function() {
 	if( time - timeAtStart > 12000) {
 		
 		if (iteration++ >=5 ){
-		
-			var timeToGo = (players['water'].height/0.2)/200;
+
+			var timeToGo = (players['water'].height/0.3)/30;
+			timeToGo = Math.floor(timeToGo);
 			io.emit('starting in', 'Next wave in ' + timeToGo);
 			iteration = 0;
 		}
@@ -153,7 +160,8 @@ setInterval(function() {
 		if(iteration++ >= 5) {
 		
 			var timeToGo = (12000-(time-timeAtStart))/1000;
-			io.emit('starting in', 'starting in ' + timeToGo);
+			timeToGo = Math.floor(timeToGo);
+			io.emit('starting in', 'Starting in ' + timeToGo);
 			iteration = 0;
 		
 		}
@@ -184,7 +192,7 @@ setInterval(function() {
 	
 	io.emit('players', JSON.stringify(players));	
 	
-}, 20);
+}, 30);
 
 
 
