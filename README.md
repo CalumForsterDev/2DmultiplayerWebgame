@@ -7,6 +7,6 @@ Programmed using the Phaser.io game engine.
 Use an nginx server to serve files and let the server focus on broadcasting players data.
 
 TODO:
-	add objects to drop down to help other peopl up
+
 	add voice chat
 	add a way to add your face
