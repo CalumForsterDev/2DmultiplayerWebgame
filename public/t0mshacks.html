@@ -1,0 +1,46 @@
+<!doctype html> 
+<html lang="en"> 
+
+        <!-- chrome.exe --user-data-dir="C:/Chrome dev session" --disable-web-security -->
+
+        <body>
+                <iframe id="game" src="game.html" height=580 width=1000></iframe>  
+                <hr />
+                <span id="hax">
+                       <button onclick="megaJump()">Mega Jump</button>
+                       <button onclick="releaseBoat()">Release boat</button>
+                       <button onclick="teleportToTop()">Teleport to top</button>
+                       <button onclick="highScore()">Score 10,000 points</button> 
+                       <button onclick="highHealth()">Add 10,000 HP</button>
+                       <button onclick="disableWater()">Disable water</button>
+                </span>      
+        </body>
+        
+        <script>
+                 function megaJump(){
+                        window.parent.parent.frames[0].player.body.velocity.y = -500;
+                 }
+                 
+                 function releaseBoat(){
+                        window.parent.parent.frames[0].socket.emit('release');       
+                 }
+                 
+                 function teleportToTop(){
+                        window.parent.parent.frames[0].player.reset(32, 32);
+                        window.parent.parent.frames[0].update();  
+                 }
+                 
+                 function highScore(){
+                       window.parent.parent.frames[0].score += 10000;
+                 }
+                 
+                 function highHealth(){
+                       window.parent.parent.frames[0].player.health += 10000;
+                 }
+                 
+                 function disableWater(){
+                       window.parent.parent.frames[0].water.kill();
+                 }
+                 
+        </script>
+</html>

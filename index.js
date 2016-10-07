@@ -36,6 +36,13 @@ app.get('/backup', function(req, res) {
 
 });
 
+app.get('/t0mshacks', function(req, res) {
+
+	res.sendFile(path.join(__dirname+'/public/t0mshacks.html'));
+
+});
+
+
 app.use(express.static('public'));
 
 io.on('connection', function(socket) {
